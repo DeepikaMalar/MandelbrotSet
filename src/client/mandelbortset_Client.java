@@ -12,7 +12,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.imageio.ImageIO;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileSystemView;
 
+import exception.MandelbrotSetException;
 import server.Server;
 
 public class mandelbortset_Client implements Runnable {
@@ -33,7 +36,7 @@ public class mandelbortset_Client implements Runnable {
 		this.hostAndPort = hostAndPort;
 	}
 
-	public static void main(String args[]) throws IOException {
+	public static void main(String args[]) throws IOException, MandelbrotSetException {
 		min_c_re = Double.parseDouble(args[0]);
 		min_c_im = Double.parseDouble(args[1]);
 		max_c_re = Double.parseDouble(args[2]);
@@ -42,12 +45,35 @@ public class mandelbortset_Client implements Runnable {
 		width = Integer.parseInt(args[5]);
 		height = Integer.parseInt(args[6]);
 		divisions = Integer.parseInt(args[7]);
+		// Open file uploader window
+		JFileChooser jfc = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
+		int returnValue = jfc.showOpenDialog(null);
+		if (returnValue == JFileChooser.APPROVE_OPTION) {
+			File uploadedFile = jfc.getSelectedFile();
+			BufferedImage uploadedImage = ImageIO.read(uploadedFile);
+			/*
+			 * uploaded image width and height is not 1000 X 1000 then the function will
+			 * throw an error message otherwise images is convert as gray scale image and
+			 * divided the image as 4 rows and columns and then given to server to do
+			 * mandelbrot function.
+			 */
+			if (uploadedImage.getWidth() != width && uploadedImage.getHeight() != height) {
+				throw new MandelbrotSetException("please select image with pixel " + width + "x" + height);
+			} else {
+				BufferedImage bufferedImage = convertToGrayScaleImage(uploadedImage);
+				BufferedImage[] splittedImages = splitGrayscaleImage(bufferedImage, divisions);
+				createLoadServer(splittedImages, Arrays.copyOfRange(args, 8, 11));
+			}
 
-		BufferedImage bufferedImage = loadImageToConvertGrayScale(width, height);
-		BufferedImage[] splittedImages = splitGrayscaleImage(bufferedImage, divisions);
-		createLoadServer(splittedImages, Arrays.copyOfRange(args, 8, 11));
+		}
 
 	}
+	/**
+	 * method to load server for each port number 
+	 * input BufferedImages[]
+	 * input host as String []
+	 * input ports as String[]
+	 */
 
 	private static void createLoadServer(BufferedImage[] splittedImages, String[] hostAndPorts) {
 		int startIndex = 0;
@@ -68,7 +94,12 @@ public class mandelbortset_Client implements Runnable {
 		executor.shutdown();
 		System.out.println("\n process completed");
 	}
-
+	/**
+	 * method to divided gray scale image as sub images 
+	 * input BufferedImage as bufferedImageGray
+	 * input division as int
+	 * output BufferedImage as splittedImages[].
+	 */
 	private static BufferedImage[] splitGrayscaleImage(BufferedImage bufferedImageGray, int divisions) {
 
 		int splitImageWidht = bufferedImageGray.getWidth() / divisions; // determines the chunk width and height
@@ -89,16 +120,19 @@ public class mandelbortset_Client implements Runnable {
 		return splittedImages;
 	}
 
-	private static BufferedImage loadImageToConvertGrayScale(int width, int height) {
+	/**
+	 * method to convert original image to gray scale image 
+	 * input BufferedImage as originalImage
+	 * input division as int
+	 * output BufferedImage as grayScaleImage.
+	 */
+	private static BufferedImage convertToGrayScaleImage(BufferedImage originalImage) throws MandelbrotSetException {
 		// TODO Auto-generated method stub
 		int red = 0;
 		int blue = 0;
 		int green = 0;
-		BufferedImage originalImage = null;
 		BufferedImage grayScaleImage = null;
 		try {
-			File file = new File("C:/Users/deepika/Mandelbrot/images.jpg");
-			originalImage = ImageIO.read(file);
 			grayScaleImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(),
 					BufferedImage.TYPE_INT_RGB);
 			Graphics2D graphic = grayScaleImage.createGraphics();
@@ -111,10 +145,12 @@ public class mandelbortset_Client implements Runnable {
 					blue = (int) (c.getBlue() * 0.114);
 					Color newColor = new Color(red + green + blue);
 					grayScaleImage.setRGB(j, i, newColor.getRGB());
+					ImageIO.write(grayScaleImage, "png", new File("C:/Users/deepika/Mandelbrot Set-Pgm/test.png"));
+
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			throw new MandelbrotSetException(e.getMessage());
 		}
 		return grayScaleImage;
 	}
@@ -130,7 +166,11 @@ public class mandelbortset_Client implements Runnable {
 					max_c_re, min_c_im, max_c_im, max_n);
 			sock.close();
 		} catch (Exception e) {
-			e.printStackTrace();
+			try {
+				throw new MandelbrotSetException(e.getMessage());
+			} catch (MandelbrotSetException e1) {
+
+			}
 		}
 	}
 
